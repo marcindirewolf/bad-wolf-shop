@@ -8,17 +8,95 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { ShoppingCart, Search, Filter, Star, Heart, Menu, User, Package, Settings, LogOut, LogIn, UserPlus } from 'lucide-react'
+import { ShoppingCart, Search, Filter, Star, Heart, Menu, User, Package, Settings, LogOut, LogIn, UserPlus, Award, History, MapPin } from 'lucide-react'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
+
+// User Menu Component
+const UserMenu = ({ user, onLogout }) => {
+  if (!user) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <User className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel>Account</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/login" className="flex items-center">
+              <LogIn className="h-4 w-4 mr-2" />
+              Sign In
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/login" className="flex items-center">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Create Account
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="flex items-center space-x-2">
+          <User className="h-5 w-5" />
+          <span className="hidden md:block">{user.name}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <div>
+            <p className="font-medium">{user.name}</p>
+            <p className="text-sm text-muted-foreground">{user.email}</p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <History className="h-4 w-4 mr-2" />
+          Order History
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <MapPin className="h-4 w-4 mr-2" />
+          Address Book
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Award className="h-4 w-4 mr-2" />
+          Loyalty Points ({user.loyaltyPoints || 0})
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={onLogout}>
+          <LogOut className="h-4 w-4 mr-2" />
+          Sign Out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 export default function App() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [cart, setCart] = useState([])
+  const [user, setUser] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+
+  // Auth state management
+  useEffect(() => {
+    // Check if user is logged in
+    const userData = localStorage.getItem('user_data')
+    if (userData) {
+      setUser(JSON.parse(userData))
+    }
+  }, [])
 
   // Sample data for immediate demo (will be replaced with API calls)
   useEffect(() => {
@@ -29,7 +107,7 @@ export default function App() {
         price: 2499.99,
         originalPrice: 2999.99,
         category: 'watches',
-        image: 'https://images.unsplash.com/photo-1610888968213-4f6d2068108',
+        image: 'https://images.unsplash.com/photo-1698612059658-7ca81326a140',
         description: 'Exquisite timepiece crafted with precision and elegance',
         rating: 4.8,
         reviews: 124,
@@ -79,7 +157,7 @@ export default function App() {
         price: 299.99,
         originalPrice: 399.99,
         category: 'accessories',
-        image: 'https://images.unsplash.com/photo-1698612059658-7ca81326a140',
+        image: 'https://via.placeholder.com/400x400?text=Accessories',
         description: 'Elevate your everyday with our premium accessories',
         rating: 4.6,
         reviews: 156,
@@ -133,6 +211,11 @@ export default function App() {
       }
       return [...prevCart, cartItem]
     })
+
+    // If user is logged in, sync with backend
+    if (user) {
+      syncCartWithBackend(cartItem, 'add')
+    }
   }
 
   const removeFromCart = (itemId) => {
@@ -153,6 +236,33 @@ export default function App() {
     )
   }
 
+  const syncCartWithBackend = async (cartItem, action) => {
+    try {
+      await fetch('/api/cart/' + action, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('user_token')}`
+        },
+        body: JSON.stringify({
+          sessionId: user.id,
+          productId: cartItem.productId,
+          variantId: cartItem.variant !== 'Default' ? cartItem.id : null,
+          quantity: cartItem.quantity
+        })
+      })
+    } catch (error) {
+      console.error('Failed to sync cart:', error)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('user_token')
+    localStorage.removeItem('user_data')
+    setUser(null)
+    setCart([]) // Clear cart on logout
+  }
+
   const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0)
   const cartItemsCount = cart.reduce((total, item) => total + item.quantity, 0)
 
@@ -162,10 +272,10 @@ export default function App() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2">
             <Package className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold text-primary">Bad-Wolf®</span>
-          </div>
+          </Link>
 
           {/* Search Bar */}
           <div className="hidden md:flex flex-1 max-w-md mx-8">
@@ -182,7 +292,7 @@ export default function App() {
 
           {/* Header Actions */}
           <div className="flex items-center space-x-4">
-            <UserMenu />
+            <UserMenu user={user} onLogout={handleLogout} />
             
             <Button variant="ghost" size="icon" onClick={() => window.open('/admin', '_blank')}>
               <Settings className="h-5 w-5" />
@@ -209,13 +319,26 @@ export default function App() {
                 </SheetHeader>
                 <div className="mt-8">
                   {cart.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">Your cart is empty</p>
+                    <div className="text-center py-8">
+                      <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">Your cart is empty</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Add some amazing products to get started
+                      </p>
+                    </div>
                   ) : (
                     <>
                       <div className="space-y-4">
                         {cart.map((item) => (
                           <div key={item.id} className="flex items-center space-x-4 border-b pb-4">
-                            <img src={item.image} alt={item.name} className="h-16 w-16 rounded-md object-cover" />
+                            <img 
+                              src={item.image} 
+                              alt={item.name} 
+                              className="h-16 w-16 rounded-md object-cover"
+                              onError={(e) => {
+                                e.target.src = 'https://via.placeholder.com/64x64?text=IMG'
+                              }}
+                            />
                             <div className="flex-1">
                               <h4 className="font-semibold text-sm">{item.name}</h4>
                               <p className="text-sm text-muted-foreground">{item.variant}</p>
@@ -256,9 +379,27 @@ export default function App() {
                         <div className="flex justify-between items-center text-lg font-semibold">
                           <span>Total: ${cartTotal.toFixed(2)}</span>
                         </div>
-                        <Button className="w-full" size="lg">
-                          Proceed to Checkout
-                        </Button>
+                        
+                        {user ? (
+                          <div className="space-y-2">
+                            <Button className="w-full" size="lg">
+                              Proceed to Checkout
+                            </Button>
+                            <div className="text-center text-sm text-muted-foreground">
+                              <Award className="h-4 w-4 inline mr-1" />
+                              You'll earn {Math.floor(cartTotal)} loyalty points
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Button className="w-full" size="lg" asChild>
+                              <Link href="/login">Sign In to Checkout</Link>
+                            </Button>
+                            <p className="text-center text-sm text-muted-foreground">
+                              Sign in to earn loyalty points and track your orders
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
@@ -306,9 +447,24 @@ export default function App() {
             <p className="text-lg md:text-xl mb-8 text-white/90">
               Elevate your lifestyle with our curated selection of luxury products
             </p>
-            <Button size="lg" className="text-lg px-8 py-3">
-              Shop Now
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" className="text-lg px-8 py-3">
+                Shop Now
+              </Button>
+              {!user && (
+                <Button size="lg" variant="outline" className="text-lg px-8 py-3 bg-white/10 border-white/20 text-white hover:bg-white/20" asChild>
+                  <Link href="/login">
+                    Join & Get Rewards
+                  </Link>
+                </Button>
+              )}
+            </div>
+            {user && (
+              <div className="mt-4 text-white/80">
+                <Award className="h-5 w-5 inline mr-2" />
+                Welcome back! You have {user.loyaltyPoints || 0} loyalty points
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -341,6 +497,36 @@ export default function App() {
                 ))}
               </CardContent>
             </Card>
+
+            {!user && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-primary">Join Bad-Wolf®</CardTitle>
+                  <CardDescription>
+                    Unlock exclusive benefits and earn rewards
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 text-sm mb-4">
+                    <li className="flex items-center">
+                      <Award className="h-4 w-4 text-primary mr-2" />
+                      Earn loyalty points
+                    </li>
+                    <li className="flex items-center">
+                      <History className="h-4 w-4 text-primary mr-2" />
+                      Track orders
+                    </li>
+                    <li className="flex items-center">
+                      <Heart className="h-4 w-4 text-primary mr-2" />
+                      Save favorites
+                    </li>
+                  </ul>
+                  <Button asChild className="w-full">
+                    <Link href="/login">Join Now</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </aside>
 
           {/* Product Grid */}
@@ -384,6 +570,9 @@ export default function App() {
                         src={product.image}
                         alt={product.name}
                         className="object-cover w-full h-full group-hover:scale-105 transition-transform"
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/400x400?text=' + encodeURIComponent(product.name)
+                        }}
                       />
                       {product.isNew && (
                         <Badge className="absolute top-2 left-2">
@@ -505,12 +694,12 @@ export default function App() {
               </p>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Quick Links</h4>
+              <h4 className="font-semibold mb-4">Account</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">About Us</a></li>
-                <li><a href="#" className="hover:text-foreground">Contact</a></li>
-                <li><a href="#" className="hover:text-foreground">Shipping</a></li>
-                <li><a href="#" className="hover:text-foreground">Returns</a></li>
+                <li><Link href="/login" className="hover:text-foreground">Sign In</Link></li>
+                <li><Link href="/login" className="hover:text-foreground">Create Account</Link></li>
+                <li><Link href="#" className="hover:text-foreground">Order Tracking</Link></li>
+                <li><Link href="#" className="hover:text-foreground">Loyalty Program</Link></li>
               </ul>
             </div>
             <div>
@@ -527,8 +716,8 @@ export default function App() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#" className="hover:text-foreground">FAQ</a></li>
                 <li><a href="#" className="hover:text-foreground">Size Guide</a></li>
-                <li><a href="#" className="hover:text-foreground">Track Order</a></li>
                 <li><a href="#" className="hover:text-foreground">Customer Service</a></li>
+                <li><Link href="/admin" className="hover:text-foreground">Admin Panel</Link></li>
               </ul>
             </div>
           </div>

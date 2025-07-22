@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://1b0b67ed-e1be-4b65-a5e4-4d16c8ea49eb.preview.emergentagent.com/api"
+BASE_URL = "http://localhost:3000/api"
 TIMEOUT = 30
 
 class BadWolfAPITester:

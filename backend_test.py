@@ -42,7 +42,7 @@ class BadWolfAPITester:
     def test_root_endpoint(self):
         """Test GET /api/ - Root endpoint"""
         try:
-            response = self.session.get(f"{BASE_URL}/")
+            response = self.session.get(f"{BASE_URL}")
             if response.status_code == 200:
                 data = response.json()
                 if 'message' in data and 'Bad-Wolf®' in data['message']:
